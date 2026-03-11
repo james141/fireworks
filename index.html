@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>马尚姚专属 🎆</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            background: #000;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .tip {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 16px;
+            text-align: center;
+            z-index: 10;
+            text-shadow: 0 0 5px #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="tip">满屏烟花自动绽放 ✨</div>
+    <canvas id="fireworks"></canvas>
+
+    <script>
+        const canvas = document.getElementById('fireworks');
+        const ctx = canvas.getContext('2d');
+
+        // 适配屏幕尺寸
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // 随机数工具函数
+        function random(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        // 丰富的烟花配色
+        const colors = [
+            '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#0099ff',
+            '#0033ff', '#9900ff', '#ff0099', '#ffffff', '#ff6666',
+            '#66ff66', '#6666ff', '#ffff99', '#ff99ff'
+        ];
+
+        // 粒子类（烟花粒子）
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.speed = random(1, 6); // 粒子速度，范围更大更有层次感
+                this.angle = random(0, Math.PI * 2);
+                this.gravity = 0.06;
+                this.vx = Math.cos(this.angle) * this.speed;
+                this.vy = Math.sin(this.angle) * this.speed;
+                this.color = colors[Math.floor(random(0, colors.length))];
+                this.alpha = 1;
+                this.decay = random(0.005, 0.015);
+                this.size = random(1.5, 3); // 粒子大小随机，更真实
+            }
+
+            update() {
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+                // 加入轻微的空气阻力，让粒子减速
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        let particles = [];
+
+        // 生成烟花的函数（随机位置）
+        function createFirework() {
+            // 随机生成屏幕内的位置（避开边缘）
+            const x = random(50, canvas.width - 50);
+            const y = random(50, canvas.height - 50);
+            // 每个烟花的粒子数量（随机，让烟花大小不一）
+            const particleCount = random(80, 150);
+            
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(x, y));
+            }
+        }
+
+        // 动画循环
+        function animate() {
+            // 半透明背景，保留烟花拖影
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 更新并绘制所有粒子，过滤掉透明的粒子
+            particles = particles.filter(particle => {
+                particle.update();
+                particle.draw();
+                return particle.alpha > 0;
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // 启动动画
+        animate();
+
+        // 核心：定时自动生成烟花（每隔100-300毫秒生成一个，满屏效果）
+        setInterval(() => {
+            createFirework();
+            // 偶尔生成2个烟花，增加密集感
+            if (Math.random() > 0.7) {
+                createFirework();
+            }
+        }, random(100, 300));
+    </script>
+</body>
+</html>
