@@ -20,6 +20,19 @@
             width: 100vw;
             height: 100vh;
         }
+        /* 新增：爆炸闪光层（覆盖整个屏幕） */
+        .flash-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #fff;
+            opacity: 0; /* 初始透明 */
+            pointer-events: none; /* 不遮挡点击 */
+            z-index: 5; /* 低于文字，高于烟花 */
+            transition: opacity 0.15s ease-out, background 0.1s ease;
+        }
         /* 中间文字样式  */
         .center-text {
             position: fixed;
@@ -45,6 +58,8 @@
     </style>
 </head>
 <body>
+    <!-- 新增：爆炸闪光层 -->
+    <div class="flash-layer" id="flashLayer"></div>
     <div class="center-text" id="centerText"></div>
     <canvas id="fireworks"></canvas>
 
@@ -52,6 +67,8 @@
         const canvas = document.getElementById('fireworks');
         const ctx = canvas.getContext('2d');
         const centerText = document.getElementById('centerText');
+        // 新增：获取闪光层DOM
+        const flashLayer = document.getElementById('flashLayer');
 
         // 适配屏幕尺寸
         function resizeCanvas() {
@@ -225,10 +242,28 @@
             }
         }
 
+        // 🌟 新增：爆炸闪光效果函数
+        function triggerFlash(x, y) {
+            // 根据烟花大小调整闪光强度（超大烟花更亮）
+            const flashOpacity = x === 'huge' ? 0.3 : random(0.1, 0.2);
+            // 闪光颜色：主白+轻微烟花色偏（更真实）
+            const flashColor = `rgba(255, 255, 255, ${flashOpacity})`;
+            
+            // 触发闪光
+            flashLayer.style.background = flashColor;
+            flashLayer.style.opacity = flashOpacity;
+            
+            // 快速淡出（模拟瞬间闪光）
+            setTimeout(() => {
+                flashLayer.style.opacity = 0;
+                flashLayer.style.background = 'rgba(255,255,255,0)';
+            }, 150);
+        }
+
         let particles = [];
         let fireworkTrails = [];
 
-        // 🌟 升级：生成烟花（带升空轨迹+随机类型）
+        // 🌟 升级：生成烟花（带升空轨迹+随机类型+闪光）
         function createFirework(type = 'normal') {
             // 随机位置（避开边缘）
             const x = random(50, canvas.width - 50);
@@ -238,11 +273,14 @@
             const trail = new FireworkTrail(x, y);
             fireworkTrails.push(trail);
 
-            // 升空完成后生成爆炸粒子
+            // 升空完成后生成爆炸粒子+触发闪光
             setTimeout(() => {
                 // 不同类型烟花粒子数量不同
                 const particleCount = type === 'huge' ? 200 : random(80, 150);
                 const fireworkType = Math.random() > 0.8 ? 'heart' : type; // 20%概率生成心形烟花
+                
+                // 触发爆炸闪光（超大烟花传huge标识）
+                triggerFlash(type);
                 
                 for (let i = 0; i < particleCount; i++) {
                     particles.push(new Particle(x, trail.y, fireworkType));
@@ -326,7 +364,7 @@
             }
         }, random(200, 500));
 
-        // 🌟 新增：点击/触摸屏幕触发超大心形烟花
+        // 🌟 新增：点击/触摸屏幕触发超大心形烟花+闪光
         function triggerBigFirework(e) {
             let x, y;
             if (e.touches) {
@@ -338,6 +376,9 @@
                 x = e.clientX;
                 y = e.clientY;
             }
+            
+            // 触发超大闪光
+            triggerFlash('huge');
             
             // 直接生成超大心形烟花（跳过升空）
             for (let i = 0; i < 250; i++) {
