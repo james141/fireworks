@@ -20,17 +20,6 @@
             width: 100vw;
             height: 100vh;
         }
-        .tip {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #fff;
-            font-size: 16px;
-            text-align: center;
-            z-index: 10;
-            text-shadow: 0 0 5px #fff;
-        }
         /* 中间文字样式  */
         .center-text {
             position: fixed;
@@ -38,14 +27,20 @@
             left: 50%;
             transform: translate(-50%, -50%);
             color: #fff;
-            font-size: 32px; /* 移动端适配的字号 */
+            font-size: 36px; /* 字号加大更醒目 */
             font-weight: bold;
             text-align: center;
             z-index: 10;
-            text-shadow: 0 0 10px #fff, 0 0 20px #ff66cc, 0 0 30px #9933ff; /* 发光效果 */
-            opacity: 0; /* 初始透明 */
-            transition: opacity 1s ease; /* 渐变过渡 */
-            line-height: 1.5;
+            /* 升级发光效果：多色渐变发光 */
+            text-shadow: 
+                0 0 10px #fff, 
+                0 0 20px #ff66cc, 
+                0 0 30px #9933ff,
+                0 0 40px #6699ff,
+                0 0 50px #ff3366; 
+            opacity: 0; 
+            transition: opacity 1.2s ease-in-out; /* 更丝滑的渐变 */
+            line-height: 1.8;
         }
     </style>
 </head>
@@ -71,67 +66,242 @@
             return Math.random() * (max - min) + min;
         }
 
-        // 丰富的烟花配色
+        // 升级配色：增加渐变色系，更梦幻
         const colors = [
             '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#0099ff',
             '#0033ff', '#9900ff', '#ff0099', '#ffffff', '#ff6666',
-            '#66ff66', '#6666ff', '#ffff99', '#ff99ff'
+            '#66ff66', '#6666ff', '#ffff99', '#ff99ff', '#ff33cc',
+            '#33ffff', '#99ff99', '#ffcc33', '#cc33ff', '#33ccff'
         ];
 
-        // 粒子类（烟花粒子）
+        // 🌟 新增：星光背景（营造星空氛围）
+        class Star {
+            constructor() {
+                this.x = random(0, canvas.width);
+                this.y = random(0, canvas.height);
+                this.size = random(0.5, 2);
+                this.alpha = random(0.2, 1);
+                this.blinkSpeed = random(0.005, 0.015);
+            }
+            update() {
+                this.alpha += Math.sin(Date.now() * this.blinkSpeed) * 0.01;
+                this.alpha = Math.max(0.2, Math.min(1, this.alpha));
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        let stars = [];
+        // 生成200颗星星
+        for (let i = 0; i < 200; i++) {
+            stars.push(new Star());
+        }
+
+        // 🌟 升级粒子类：增加轨迹、形状、拖尾效果
         class Particle {
-            constructor(x, y) {
+            constructor(x, y, type = 'normal') {
                 this.x = x;
                 this.y = y;
-                this.speed = random(1, 6);
+                this.type = type; // 烟花类型：normal/huge/heart
+                // 不同类型烟花速度不同
+                this.speed = this.type === 'huge' ? random(3, 8) : random(1, 6);
                 this.angle = random(0, Math.PI * 2);
-                this.gravity = 0.06;
+                this.gravity = this.type === 'huge' ? 0.08 : 0.06;
                 this.vx = Math.cos(this.angle) * this.speed;
                 this.vy = Math.sin(this.angle) * this.speed;
+                // 随机渐变色
                 this.color = colors[Math.floor(random(0, colors.length))];
                 this.alpha = 1;
-                this.decay = random(0.005, 0.015);
-                this.size = random(1.5, 3);
+                this.decay = this.type === 'huge' ? random(0.008, 0.02) : random(0.005, 0.015);
+                // 不同类型粒子大小不同
+                this.size = this.type === 'huge' ? random(2, 4) : random(1.5, 3);
+                // 拖尾效果：记录前N个位置
+                this.trail = [];
+                this.trailLength = this.type === 'huge' ? 8 : 5;
             }
 
             update() {
+                // 记录拖尾位置
+                this.trail.push({ x: this.x, y: this.y, alpha: this.alpha });
+                if (this.trail.length > this.trailLength) {
+                    this.trail.shift();
+                }
+
+                // 重力+空气阻力
                 this.vy += this.gravity;
                 this.x += this.vx;
                 this.y += this.vy;
                 this.alpha -= this.decay;
-                this.vx *= 0.98;
-                this.vy *= 0.98;
+                this.vx *= 0.97;
+                this.vy *= 0.97;
+
+                // 心形烟花特殊轨迹（随机出现）
+                if (this.type === 'heart') {
+                    const t = this.angle;
+                    this.vx = 16 * Math.pow(Math.sin(t), 3) * 0.5;
+                    this.vy = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t)) * 0.5;
+                }
             }
 
             draw() {
+                // 绘制拖尾
+                for (let i = 0; i < this.trail.length; i++) {
+                    const trail = this.trail[i];
+                    const trailAlpha = trail.alpha * (i / this.trailLength);
+                    ctx.save();
+                    ctx.globalAlpha = trailAlpha;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(trail.x, trail.y, this.size * (i / this.trailLength), 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // 绘制粒子本体
                 ctx.save();
                 ctx.globalAlpha = this.alpha;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
-                ctx.fill();
+                // 不同形状：圆形/方形/心形
+                if (this.type === 'heart' && Math.random() > 0.5) {
+                    // 简化心形绘制
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + this.size/2);
+                    ctx.bezierCurveTo(
+                        this.x - this.size/2, this.y - this.size/2,
+                        this.x - this.size*2, this.y + this.size/2,
+                        this.x, this.y + this.size*1.5
+                    );
+                    ctx.bezierCurveTo(
+                        this.x + this.size*2, this.y + this.size/2,
+                        this.x + this.size/2, this.y - this.size/2,
+                        this.x, this.y + this.size/2
+                    );
+                    ctx.fill();
+                } else if (Math.random() > 0.7) {
+                    // 方形粒子
+                    ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+                } else {
+                    // 圆形粒子（默认）
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // 🌟 新增：烟花升空轨迹类
+        class FireworkTrail {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.targetY = random(canvas.height/4, canvas.height/2); // 升空目标高度
+                this.speed = random(8, 15);
+                this.alpha = 1;
+                this.color = colors[Math.floor(random(0, colors.length))];
+            }
+            update() {
+                this.y -= this.speed; // 向上飞
+                this.alpha -= 0.01;
+                // 升空到目标高度后爆炸
+                return this.y > this.targetY;
+            }
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(this.x, canvas.height);
+                ctx.lineTo(this.x, this.y);
+                ctx.stroke();
                 ctx.restore();
             }
         }
 
         let particles = [];
+        let fireworkTrails = [];
 
-        // 生成烟花的函数
-        function createFirework() {
+        // 🌟 升级：生成烟花（带升空轨迹+随机类型）
+        function createFirework(type = 'normal') {
+            // 随机位置（避开边缘）
             const x = random(50, canvas.width - 50);
-            const y = random(50, canvas.height - 50);
-            const particleCount = random(80, 150);
+            const y = canvas.height;
             
-            for (let i = 0; i < particleCount; i++) {
-                particles.push(new Particle(x, y));
+            // 先创建升空轨迹
+            const trail = new FireworkTrail(x, y);
+            fireworkTrails.push(trail);
+
+            // 升空完成后生成爆炸粒子
+            setTimeout(() => {
+                // 不同类型烟花粒子数量不同
+                const particleCount = type === 'huge' ? 200 : random(80, 150);
+                const fireworkType = Math.random() > 0.8 ? 'heart' : type; // 20%概率生成心形烟花
+                
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push(new Particle(x, trail.y, fireworkType));
+                }
+
+                // 🌟 新增：播放爆炸音效（移动端需用户交互后才能播放）
+                playFireworkSound();
+            }, 800);
+        }
+
+        // 🌟 新增：烟花爆炸音效
+        function playFireworkSound() {
+            // 创建音频上下文
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                
+                const audioCtx = new AudioContext();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                // 烟花爆炸音效参数
+                oscillator.type = 'sine';
+                oscillator.frequency.value = random(800, 1500);
+                gainNode.gain.value = 0.1;
+
+                // 音效渐变
+                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
+                
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.5);
+            } catch (e) {
+                // 不支持音频则忽略
             }
         }
 
-        // 动画循环
+        // 🌟 升级动画循环：加入星光+升空轨迹
         function animate() {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+            // 半透明背景（保留拖影，透明度降低更丝滑）
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // 绘制并更新星星
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+
+            // 绘制并更新烟花升空轨迹
+            fireworkTrails = fireworkTrails.filter(trail => {
+                const isFlying = trail.update();
+                trail.draw();
+                return isFlying;
+            });
+
+            // 绘制并更新粒子
             particles = particles.filter(particle => {
                 particle.update();
                 particle.draw();
@@ -143,14 +313,42 @@
 
         // 启动烟花动画
         animate();
+
+        // 🌟 升级：自动生成烟花（随机类型，间隔更灵活）
         setInterval(() => {
-            createFirework();
-            if (Math.random() > 0.7) {
+            // 70%普通烟花，30%超大烟花
+            const type = Math.random() > 0.7 ? 'huge' : 'normal';
+            createFirework(type);
+            
+            // 偶尔一次生成2个烟花
+            if (Math.random() > 0.8) {
                 createFirework();
             }
-        }, random(100, 300));
+        }, random(200, 500));
 
-        // 修改后的文字播放逻辑（只播放一遍，最后一句永久显示）
+        // 🌟 新增：点击/触摸屏幕触发超大心形烟花
+        function triggerBigFirework(e) {
+            let x, y;
+            if (e.touches) {
+                // 移动端触摸
+                x = e.touches[0].clientX;
+                y = e.touches[0].clientY;
+            } else {
+                // 电脑端点击
+                x = e.clientX;
+                y = e.clientY;
+            }
+            
+            // 直接生成超大心形烟花（跳过升空）
+            for (let i = 0; i < 250; i++) {
+                particles.push(new Particle(x, y, 'heart'));
+            }
+            playFireworkSound();
+        }
+        canvas.addEventListener('click', triggerBigFirework);
+        canvas.addEventListener('touchstart', triggerBigFirework);
+
+        // 文字播放逻辑（保留并优化）
         const textList = [
             '不止今夜',
             '不止烟火',
@@ -158,27 +356,25 @@
             '皆是你'
         ];
         let currentIndex = 0;
-        const showDuration = 3000; // 每句显示时长
-        const fadeDuration = 1000; // 渐变时长
+        const showDuration = 3500; // 每句显示时长延长，更从容
+        const fadeDuration = 1200; // 渐变时长更丝滑
 
         function showText() {
-            // 设置当前要显示的文字
             centerText.textContent = textList[currentIndex];
-            // 渐变显示文字
             centerText.style.opacity = 1;
 
-            // 判断是否是最后一句
             if (currentIndex === textList.length - 1) {
-                // 最后一句：显示后不再消失，终止循环
+                // 最后一句：增加放大动画
+                centerText.style.transition = 'all 1.5s ease-in-out';
+                centerText.style.fontSize = '40px';
                 return;
             }
 
-            // 非最后一句：显示指定时长后渐变消失，然后切换下一句
             setTimeout(() => {
                 centerText.style.opacity = 0;
                 setTimeout(() => {
                     currentIndex++;
-                    showText(); // 继续播放下一句
+                    showText();
                 }, fadeDuration);
             }, showDuration);
         }
