@@ -20,7 +20,7 @@
             width: 100vw;
             height: 100vh;
         }
-        /* 新增：爆炸闪光层（覆盖整个屏幕） */
+        /* 爆炸闪光层（覆盖整个屏幕） */
         .flash-layer {
             position: fixed;
             top: 0;
@@ -28,9 +28,9 @@
             width: 100vw;
             height: 100vh;
             background: #fff;
-            opacity: 0; /* 初始透明 */
-            pointer-events: none; /* 不遮挡点击 */
-            z-index: 5; /* 低于文字，高于烟花 */
+            opacity: 0; 
+            pointer-events: none; 
+            z-index: 5; 
             transition: opacity 0.15s ease-out, background 0.1s ease;
         }
         /* 中间文字样式  */
@@ -40,11 +40,10 @@
             left: 50%;
             transform: translate(-50%, -50%);
             color: #fff;
-            font-size: 36px; /* 字号加大更醒目 */
+            font-size: 36px; 
             font-weight: bold;
             text-align: center;
             z-index: 10;
-            /* 升级发光效果：多色渐变发光 */
             text-shadow: 
                 0 0 10px #fff, 
                 0 0 20px #ff66cc, 
@@ -52,13 +51,12 @@
                 0 0 40px #6699ff,
                 0 0 50px #ff3366; 
             opacity: 0; 
-            transition: opacity 1.2s ease-in-out; /* 更丝滑的渐变 */
+            transition: opacity 1.2s ease-in-out; 
             line-height: 1.8;
         }
     </style>
 </head>
 <body>
-    <!-- 新增：爆炸闪光层 -->
     <div class="flash-layer" id="flashLayer"></div>
     <div class="center-text" id="centerText"></div>
     <canvas id="fireworks"></canvas>
@@ -67,8 +65,14 @@
         const canvas = document.getElementById('fireworks');
         const ctx = canvas.getContext('2d');
         const centerText = document.getElementById('centerText');
-        // 新增：获取闪光层DOM
         const flashLayer = document.getElementById('flashLayer');
+
+        // 核心：音频解锁标记（初始未解锁）
+        let audioUnlocked = false;
+        // 音频上下文（全局复用）
+        let audioCtx = null;
+        // 预加载的烟花爆炸音效缓冲区（存储多段真实音效）
+        let fireworkBuffers = [];
 
         // 适配屏幕尺寸
         function resizeCanvas() {
@@ -83,7 +87,7 @@
             return Math.random() * (max - min) + min;
         }
 
-        // 升级配色：增加渐变色系，更梦幻
+        // 烟花配色
         const colors = [
             '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#0099ff',
             '#0033ff', '#9900ff', '#ff0099', '#ffffff', '#ff6666',
@@ -91,7 +95,7 @@
             '#33ffff', '#99ff99', '#ffcc33', '#cc33ff', '#33ccff'
         ];
 
-        // 🌟 新增：星光背景（营造星空氛围）
+        // 星光背景
         class Star {
             constructor() {
                 this.x = random(0, canvas.width);
@@ -115,50 +119,40 @@
             }
         }
         let stars = [];
-        // 生成200颗星星
         for (let i = 0; i < 200; i++) {
             stars.push(new Star());
         }
 
-        // 🌟 升级粒子类：增加轨迹、形状、拖尾效果
+        // 粒子类
         class Particle {
             constructor(x, y, type = 'normal') {
                 this.x = x;
                 this.y = y;
-                this.type = type; // 烟花类型：normal/huge/heart
-                // 不同类型烟花速度不同
+                this.type = type;
                 this.speed = this.type === 'huge' ? random(3, 8) : random(1, 6);
                 this.angle = random(0, Math.PI * 2);
                 this.gravity = this.type === 'huge' ? 0.08 : 0.06;
                 this.vx = Math.cos(this.angle) * this.speed;
                 this.vy = Math.sin(this.angle) * this.speed;
-                // 随机渐变色
                 this.color = colors[Math.floor(random(0, colors.length))];
                 this.alpha = 1;
                 this.decay = this.type === 'huge' ? random(0.008, 0.02) : random(0.005, 0.015);
-                // 不同类型粒子大小不同
                 this.size = this.type === 'huge' ? random(2, 4) : random(1.5, 3);
-                // 拖尾效果：记录前N个位置
                 this.trail = [];
                 this.trailLength = this.type === 'huge' ? 8 : 5;
             }
 
             update() {
-                // 记录拖尾位置
                 this.trail.push({ x: this.x, y: this.y, alpha: this.alpha });
                 if (this.trail.length > this.trailLength) {
                     this.trail.shift();
                 }
-
-                // 重力+空气阻力
                 this.vy += this.gravity;
                 this.x += this.vx;
                 this.y += this.vy;
                 this.alpha -= this.decay;
                 this.vx *= 0.97;
                 this.vy *= 0.97;
-
-                // 心形烟花特殊轨迹（随机出现）
                 if (this.type === 'heart') {
                     const t = this.angle;
                     this.vx = 16 * Math.pow(Math.sin(t), 3) * 0.5;
@@ -167,7 +161,6 @@
             }
 
             draw() {
-                // 绘制拖尾
                 for (let i = 0; i < this.trail.length; i++) {
                     const trail = this.trail[i];
                     const trailAlpha = trail.alpha * (i / this.trailLength);
@@ -179,14 +172,10 @@
                     ctx.fill();
                     ctx.restore();
                 }
-
-                // 绘制粒子本体
                 ctx.save();
                 ctx.globalAlpha = this.alpha;
                 ctx.fillStyle = this.color;
-                // 不同形状：圆形/方形/心形
                 if (this.type === 'heart' && Math.random() > 0.5) {
-                    // 简化心形绘制
                     ctx.beginPath();
                     ctx.moveTo(this.x, this.y + this.size/2);
                     ctx.bezierCurveTo(
@@ -201,10 +190,8 @@
                     );
                     ctx.fill();
                 } else if (Math.random() > 0.7) {
-                    // 方形粒子
                     ctx.fillRect(this.x - this.size/2, this.y - this.size/2, this.size, this.size);
                 } else {
-                    // 圆形粒子（默认）
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                     ctx.fill();
@@ -213,20 +200,19 @@
             }
         }
 
-        // 🌟 新增：烟花升空轨迹类
+        // 烟花升空轨迹类
         class FireworkTrail {
             constructor(x, y) {
                 this.x = x;
                 this.y = y;
-                this.targetY = random(canvas.height/4, canvas.height/2); // 升空目标高度
+                this.targetY = random(canvas.height/4, canvas.height/2);
                 this.speed = random(8, 15);
                 this.alpha = 1;
                 this.color = colors[Math.floor(random(0, colors.length))];
             }
             update() {
-                this.y -= this.speed; // 向上飞
+                this.y -= this.speed;
                 this.alpha -= 0.01;
-                // 升空到目标高度后爆炸
                 return this.y > this.targetY;
             }
             draw() {
@@ -242,104 +228,148 @@
             }
         }
 
-        // 🌟 新增：爆炸闪光效果函数
+        // 爆炸闪光效果函数
         function triggerFlash(x, y) {
-            // 根据烟花大小调整闪光强度（超大烟花更亮）
             const flashOpacity = x === 'huge' ? 0.3 : random(0.1, 0.2);
-            // 闪光颜色：主白+轻微烟花色偏（更真实）
             const flashColor = `rgba(255, 255, 255, ${flashOpacity})`;
-            
-            // 触发闪光
             flashLayer.style.background = flashColor;
             flashLayer.style.opacity = flashOpacity;
-            
-            // 快速淡出（模拟瞬间闪光）
             setTimeout(() => {
                 flashLayer.style.opacity = 0;
                 flashLayer.style.background = 'rgba(255,255,255,0)';
             }, 150);
         }
 
+        // 预加载真实烟花音效（核心修改：替换成真实音频）
+        async function loadFireworkSounds() {
+            if (!audioCtx) return;
+            
+            // 真实烟花爆炸音效的在线资源（稳定可用）
+            const soundUrls = [
+                'https://assets.mixkit.co/sfx/preview/mixkit-firework-explosion-1692.mp3',
+                'https://assets.mixkit.co/sfx/preview/mixkit-firework-pop-1691.mp3',
+                'https://assets.mixkit.co/sfx/preview/mixkit-firework-whistle-explosion-1694.mp3'
+            ];
+
+            // 加载所有音效缓冲区
+            for (const url of soundUrls) {
+                try {
+                    const response = await fetch(url);
+                    const arrayBuffer = await response.arrayBuffer();
+                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                    fireworkBuffers.push(audioBuffer);
+                } catch (e) {
+                    console.log("加载音效失败：", e);
+                }
+            }
+        }
+
+        // 播放真实烟花爆炸音效
+        function playFireworkSound() {
+            // 未解锁或未加载音效则跳过
+            if (!audioUnlocked || !audioCtx || fireworkBuffers.length === 0) return;
+            
+            try {
+                // 随机选择一段音效（更真实）
+                const randomBuffer = fireworkBuffers[Math.floor(random(0, fireworkBuffers.length))];
+                const source = audioCtx.createBufferSource();
+                const gainNode = audioCtx.createGain();
+
+                source.buffer = randomBuffer;
+                source.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                // 调整音量（避免过大）
+                gainNode.gain.value = 0.3;
+                // 超大烟花音量稍大
+                if (Math.random() > 0.7) {
+                    gainNode.gain.value = 0.5;
+                }
+
+                source.start();
+            } catch (e) {
+                console.log("播放音效失败：", e);
+            }
+        }
+
+        // 解锁音频的函数（用户点击后执行）
+        function unlockAudio(e) {
+            if (audioUnlocked) return; // 已解锁则跳过
+            
+            // 创建音频上下文（首次点击才创建）
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                audioCtx = new AudioContext();
+                // 播放静音解锁（兼容部分机型）
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0;
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.01);
+                
+                audioUnlocked = true;
+                // 解锁后立即加载音效
+                loadFireworkSounds();
+                
+                // 解锁后反馈（烟花+闪光+音效）
+                playFireworkSound();
+                triggerFlash('huge');
+                const x = e.clientX || e.touches[0].clientX;
+                const y = e.clientY || e.touches[0].clientY;
+                for (let i = 0; i < 100; i++) {
+                    particles.push(new Particle(x, y, 'heart'));
+                }
+            }
+            
+            // 移除监听避免重复触发
+            canvas.removeEventListener('click', unlockAudio);
+            canvas.removeEventListener('touchstart', unlockAudio);
+        }
+
+        // 监听首次点击/触摸解锁音频
+        canvas.addEventListener('click', unlockAudio);
+        canvas.addEventListener('touchstart', unlockAudio);
+
         let particles = [];
         let fireworkTrails = [];
 
-        // 🌟 升级：生成烟花（带升空轨迹+随机类型+闪光）
+        // 生成烟花
         function createFirework(type = 'normal') {
-            // 随机位置（避开边缘）
             const x = random(50, canvas.width - 50);
             const y = canvas.height;
-            
-            // 先创建升空轨迹
             const trail = new FireworkTrail(x, y);
             fireworkTrails.push(trail);
 
-            // 升空完成后生成爆炸粒子+触发闪光
             setTimeout(() => {
-                // 不同类型烟花粒子数量不同
                 const particleCount = type === 'huge' ? 200 : random(80, 150);
-                const fireworkType = Math.random() > 0.8 ? 'heart' : type; // 20%概率生成心形烟花
-                
-                // 触发爆炸闪光（超大烟花传huge标识）
+                const fireworkType = Math.random() > 0.8 ? 'heart' : type;
                 triggerFlash(type);
                 
                 for (let i = 0; i < particleCount; i++) {
                     particles.push(new Particle(x, trail.y, fireworkType));
                 }
-
-                // 🌟 新增：播放爆炸音效（移动端需用户交互后才能播放）
-                playFireworkSound();
+                playFireworkSound(); // 播放真实音效
             }, 800);
         }
 
-        // 🌟 新增：烟花爆炸音效
-        function playFireworkSound() {
-            // 创建音频上下文
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                
-                const audioCtx = new AudioContext();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-
-                // 烟花爆炸音效参数
-                oscillator.type = 'sine';
-                oscillator.frequency.value = random(800, 1500);
-                gainNode.gain.value = 0.1;
-
-                // 音效渐变
-                gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
-                
-                oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.5);
-            } catch (e) {
-                // 不支持音频则忽略
-            }
-        }
-
-        // 🌟 升级动画循环：加入星光+升空轨迹
+        // 动画循环
         function animate() {
-            // 半透明背景（保留拖影，透明度降低更丝滑）
             ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 绘制并更新星星
             stars.forEach(star => {
                 star.update();
                 star.draw();
             });
 
-            // 绘制并更新烟花升空轨迹
             fireworkTrails = fireworkTrails.filter(trail => {
                 const isFlying = trail.update();
                 trail.draw();
                 return isFlying;
             });
 
-            // 绘制并更新粒子
             particles = particles.filter(particle => {
                 particle.update();
                 particle.draw();
@@ -351,36 +381,26 @@
 
         // 启动烟花动画
         animate();
-
-        // 🌟 升级：自动生成烟花（随机类型，间隔更灵活）
         setInterval(() => {
-            // 70%普通烟花，30%超大烟花
             const type = Math.random() > 0.7 ? 'huge' : 'normal';
             createFirework(type);
-            
-            // 偶尔一次生成2个烟花
             if (Math.random() > 0.8) {
                 createFirework();
             }
         }, random(200, 500));
 
-        // 🌟 新增：点击/触摸屏幕触发超大心形烟花+闪光
+        // 点击触发超大心形烟花
         function triggerBigFirework(e) {
             let x, y;
             if (e.touches) {
-                // 移动端触摸
                 x = e.touches[0].clientX;
                 y = e.touches[0].clientY;
             } else {
-                // 电脑端点击
                 x = e.clientX;
                 y = e.clientY;
             }
             
-            // 触发超大闪光
             triggerFlash('huge');
-            
-            // 直接生成超大心形烟花（跳过升空）
             for (let i = 0; i < 250; i++) {
                 particles.push(new Particle(x, y, 'heart'));
             }
@@ -389,23 +409,41 @@
         canvas.addEventListener('click', triggerBigFirework);
         canvas.addEventListener('touchstart', triggerBigFirework);
 
-        // 文字播放逻辑（保留并优化）
+        // 文字播放逻辑
         const textList = [
-            '不止今夜',
-            '不止烟火',
-            '余生',
-            '皆是你'
+            '我为你放了一场烟花',
+            '在屏幕这头 悄悄点亮',
+            '那些绽开的光',
+            '像不像你最近常常提起的',
+            '闪闪发亮的远方',
+            '我知道你每天复习到十点',
+            '台灯下 和密密麻麻的笔记对坐',
+            '偶尔也会累吧',
+            '像烟花升空前的沉默',
+            '积蓄着 等待着',
+            '可你低头努力的样子',
+            '本身就是一束光',
+            '终会在这个夏天',
+            '嘭的一声',
+            '把梦想炸得满天明亮',
+            '别急',
+            '每一朵烟花都曾是一颗普通的火药',
+            '熬过了黑暗 耐住了燃烧',
+            '才换来夜空里的那几秒闪耀',
+            '你也是',
+            '去奔赴你的云端吧',
+            '我会一直在你身旁',
+            '看着你 慢慢升空 然后发光'
         ];
         let currentIndex = 0;
-        const showDuration = 3500; // 每句显示时长延长，更从容
-        const fadeDuration = 1200; // 渐变时长更丝滑
+        const showDuration = 3500;
+        const fadeDuration = 1200;
 
         function showText() {
             centerText.textContent = textList[currentIndex];
             centerText.style.opacity = 1;
 
             if (currentIndex === textList.length - 1) {
-                // 最后一句：增加放大动画
                 centerText.style.transition = 'all 1.5s ease-in-out';
                 centerText.style.fontSize = '40px';
                 return;
@@ -419,8 +457,6 @@
                 }, fadeDuration);
             }, showDuration);
         }
-
-        // 启动文字播放
         showText();
     </script>
 </body>
