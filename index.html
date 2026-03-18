@@ -73,6 +73,8 @@
         let audioCtx = null;
         // 预加载的烟花爆炸音效缓冲区（存储多段真实音效）
         let fireworkBuffers = [];
+        // 新增：流星存储数组
+        let meteors = [];
 
         // 适配屏幕尺寸
         function resizeCanvas() {
@@ -121,6 +123,86 @@
         let stars = [];
         for (let i = 0; i < 200; i++) {
             stars.push(new Star());
+        }
+
+        // 新增：流星类（逼真效果 + 固定右上到左下轨迹）
+        class Meteor {
+            constructor() {
+                // 起点：屏幕右方偏上
+                this.startX = random(canvas.width * 0.8, canvas.width * 1.2);
+                this.startY = random(0, canvas.height * 0.3);
+                // 终点：屏幕左方偏下
+                this.endX = random(-canvas.width * 0.2, canvas.width * 0.2);
+                this.endY = random(canvas.height * 0.7, canvas.height);
+                
+                // 当前位置
+                this.x = this.startX;
+                this.y = this.startY;
+                
+                // 流星属性（逼真优化）
+                this.speed = random(8, 14); // 流星速度
+                this.length = random(80, 150); // 流星拖尾长度
+                this.alpha = random(0.6, 1); // 初始透明度
+                this.trail = []; // 拖尾轨迹
+                this.trailMax = 15; // 拖尾节点数
+                
+                // 计算移动方向向量
+                const dx = this.endX - this.startX;
+                const dy = this.endY - this.startY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                this.vx = (dx / dist) * this.speed;
+                this.vy = (dy / dist) * this.speed;
+            }
+
+            update() {
+                // 记录拖尾
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > this.trailMax) {
+                    this.trail.shift();
+                }
+
+                // 移动流星
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 中途不消失，仅飞出屏幕后移除
+                return this.x > -50 && this.x < canvas.width + 50 && this.y > -50 && this.y < canvas.height + 50;
+            }
+
+            draw() {
+                ctx.save();
+                // 流星主体颜色：淡蓝白（更逼真）
+                ctx.strokeStyle = '#e6f7ff';
+                ctx.lineCap = 'round'; // 圆润线头
+                ctx.globalAlpha = this.alpha;
+
+                // 绘制拖尾（渐隐效果，头部亮尾部淡）
+                for (let i = 0; i < this.trail.length; i++) {
+                    const trail = this.trail[i];
+                    const nextTrail = this.trail[i + 1];
+                    if (nextTrail) {
+                        // 拖尾宽度递减 + 透明度递减
+                        ctx.lineWidth = (i / this.trailMax) * 3;
+                        ctx.globalAlpha = this.alpha * (i / this.trailMax);
+                        ctx.beginPath();
+                        ctx.moveTo(trail.x, trail.y);
+                        ctx.lineTo(nextTrail.x, nextTrail.y);
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
+        }
+
+        // 新增：生成流星群（2-3颗成群，先后出现）
+        function createMeteorShower() {
+            const meteorCount = Math.floor(random(2, 4)); // 2-3颗
+            for (let i = 0; i < meteorCount; i++) {
+                // 每颗流星间隔100-300ms，模拟先后出现
+                setTimeout(() => {
+                    meteors.push(new Meteor());
+                }, i * random(100, 300));
+            }
         }
 
         // 粒子类
@@ -364,6 +446,13 @@
                 star.draw();
             });
 
+            // 新增：更新并绘制流星
+            meteors = meteors.filter(meteor => {
+                const isVisible = meteor.update();
+                meteor.draw();
+                return isVisible;
+            });
+
             fireworkTrails = fireworkTrails.filter(trail => {
                 const isFlying = trail.update();
                 trail.draw();
@@ -388,6 +477,9 @@
                 createFirework();
             }
         }, random(200, 500));
+
+        // 新增：定时触发流星群（5-10秒随机出现）
+        setInterval(createMeteorShower, random(5000, 10000));
 
         // 点击触发超大心形烟花
         function triggerBigFirework(e) {
